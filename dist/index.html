@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>أمان كار - نظام إدارة صيانة السيارات</title>
+  <meta name="description" content="نظام إدارة صيانة السيارات - أمان كار">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="module" crossorigin src="/assets/index-BmOvtFnT.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-BHcezdRZ.css">
+</head>
+<body>
+
+<!-- ═══ GLOBAL LOADER ═══ -->
+<div id="global-loader">
+  <div class="loader-content">
+    <div class="loader-icon"><i class="fas fa-car"></i></div>
+    <h2 style="color:var(--primary);font-size:1.5rem">أمان كار</h2>
+    <p>جاري تحميل النظام...</p>
+  </div>
+</div>
+
+<!-- ═══ WORKSPACE LOADER (Overlay) ═══ -->
+<div id="workspace-loader" class="hidden">
+  <div class="ws-loader-pill">
+    <i class="fas fa-circle-notch"></i>
+    <span>جاري التحديث...</span>
+  </div>
+</div>
+
+<!-- ═══ TOAST CONTAINER ═══ -->
+<div id="toast-container"></div>
+
+<!-- ═══ LOGIN SCREEN ═══ -->
+<div id="login-screen" class="hidden">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="brand-icon"><i class="fas fa-car"></i></div>
+      <h1>أمان كار</h1>
+      <p>بوابة موظفي الورشة</p>
+    </div>
+
+    <!-- Login Form -->
+    <form id="login-form">
+      <div class="form-group">
+        <label for="email">البريد الإلكتروني</label>
+        <div class="input-wrap">
+          <i class="fas fa-envelope"></i>
+          <input type="email" id="email" class="form-input has-icon" placeholder="admin@example.com" required autocomplete="email">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="password">كلمة المرور</label>
+        <div class="input-wrap">
+          <i class="fas fa-lock"></i>
+          <input type="password" id="password" class="form-input has-icon has-action" placeholder="••••••••" required autocomplete="current-password">
+          <button type="button" id="toggle-password" class="toggle-pass"><i class="fas fa-eye"></i></button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg btn-w-full">
+        <i class="fas fa-sign-in-alt"></i> تسجيل الدخول
+      </button>
+      <div style="text-align:center;margin-top:1rem">
+        <a href="#" id="show-register" class="text-sm text-primary">ليس لديك حساب؟ أنشئ حسابك الآن</a>
+      </div>
+    </form>
+
+    <!-- Register Form -->
+    <form id="register-form" class="hidden">
+      <div class="form-group">
+        <label for="reg-name">الاسم الكامل</label>
+        <div class="input-wrap">
+          <i class="fas fa-user"></i>
+          <input type="text" id="reg-name" class="form-input has-icon" placeholder="محمد علي" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="reg-email">البريد الإلكتروني</label>
+        <div class="input-wrap">
+          <i class="fas fa-envelope"></i>
+          <input type="email" id="reg-email" class="form-input has-icon" placeholder="user@example.com" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="reg-password">كلمة المرور</label>
+        <div class="input-wrap">
+          <i class="fas fa-lock"></i>
+          <input type="password" id="reg-password" class="form-input has-icon" placeholder="6+ أحرف" required minlength="6">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg btn-w-full">
+        <i class="fas fa-user-plus"></i> إنشاء الحساب
+      </button>
+      <div style="text-align:center;margin-top:1rem">
+        <a href="#" id="show-login" class="text-sm text-primary">لديك حساب؟ تسجيل الدخول</a>
+      </div>
+    </form>
+
+    <p class="text-xs text-muted text-center" style="margin-top:1.25rem">
+      ملاحظة: النظام متصل بقاعدة بيانات حية. الدخول للحسابات المفعلة فقط.
+    </p>
+  </div>
+</div>
+
+<!-- ═══ DASHBOARD SHELL ═══ -->
+<div id="dashboard-shell" class="hidden">
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+  <!-- ── SIDEBAR ── -->
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo"><i class="fas fa-car"></i></div>
+      <div class="sidebar-brand-text">
+        <div class="sidebar-brand">أمان كار</div>
+      </div>
+      <button id="sidebar-collapse-btn" class="sidebar-collapse-btn" title="طي / فتح القائمة" onclick="toggleSidebarCollapse()">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="sidebar-avatar" id="sidebar-avatar"><i class="fas fa-user-circle"></i></div>
+      <div>
+        <div class="sidebar-user-name" id="sidebar-user-name">—</div>
+        <div class="sidebar-user-role" id="sidebar-user-role">—</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav" id="sidebar-nav">
+      <!-- Built dynamically by buildNavigation() -->
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="nav-item" id="nav-profile-btn">
+        <i class="fas fa-user-cog"></i><span>إعدادات الحساب</span>
+      </button>
+      <button class="nav-item" id="toggle-language-btn">
+        <i class="fas fa-globe"></i><span>English / عربي</span>
+      </button>
+      <button class="nav-item" style="color:var(--danger)" id="logout-btn">
+        <i class="fas fa-sign-out-alt"></i><span>تسجيل الخروج</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── MAIN CONTENT ── -->
+  <div class="main-content">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="topbar-start">
+        <button class="btn btn-light btn-icon" id="menu-toggle" style="display:none">
+          <i class="fas fa-bars"></i>
+        </button>
+        <span class="page-title" id="page-title">لوحة التحكم</span>
+      </div>
+      <div class="topbar-end">
+        <!-- Role Switcher (Admin only) -->
+        <div style="position:relative">
+          <button class="btn btn-outline btn-sm" id="role-switcher-btn" style="display:none">
+            <i class="fas fa-user-secret"></i> وضع المشاهدة
+          </button>
+          <div id="role-dropdown" class="dropdown-card hidden">
+            <div class="dropdown-title">عرض الواجهة كـ</div>
+            <button class="dropdown-item" data-switch-role="admin"><i class="fas fa-crown text-primary"></i> مدير النظام</button>
+            <button class="dropdown-item" data-switch-role="technician"><i class="fas fa-wrench text-warning"></i> فني صيانة</button>
+            <button class="dropdown-item" data-switch-role="accountant"><i class="fas fa-cash-register text-success"></i> محاسب</button>
+          </div>
+        </div>
+
+        <!-- Notifications -->
+        <div style="position:relative">
+          <button class="btn btn-light btn-icon" id="notifications-btn" style="position:relative">
+            <i class="fas fa-bell"></i>
+            <span id="notif-badge" class="notif-badge" style="display:none">0</span>
+          </button>
+          <div id="notifications-dropdown" class="dropdown-card hidden" style="left:0;min-width:280px">
+            <div class="dropdown-title">تنبيهات مواعيد التسليم</div>
+            <div id="notifications-list"></div>
+          </div>
+        </div>
+
+        <div style="font-size:.8rem;color:var(--text-muted)">مرحباً، <span id="welcome-name" style="font-weight:700;color:var(--text-primary)"></span></div>
+      </div>
+    </header>
+
+    <!-- CONTENT AREA -->
+    <div class="content-area">
+
+      <!-- ════ VIEW: DASHBOARD ════ -->
+      <div id="view-dashboard" class="view hidden">
+        <!-- Filters -->
+        <div class="flex gap-3 mb-4 flex-wrap items-center justify-between">
+          <div class="flex gap-2">
+            <select id="dash-date-filter" class="form-input" style="width:auto" onchange="initDashboard()">
+              <option value="all">كل الأوقات</option>
+              <option value="today">اليوم</option>
+              <option value="week">هذا الأسبوع</option>
+              <option value="month">هذا الشهر</option>
+            </select>
+            <select id="dash-tech-filter" class="form-input" style="width:auto" onchange="initDashboard()">
+              <option value="all">كل الفنيين</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" id="quick-create-order-btn">
+            <i class="fas fa-plus"></i> إصدار أمر جديد
+          </button>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon primary"><i class="fas fa-clipboard-list"></i></div>
+            <div><div class="stat-label">إجمالي السيارات</div><div class="stat-value" id="stat-total">0</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon warning"><i class="fas fa-tools"></i></div>
+            <div><div class="stat-label">قيد الصيانة</div><div class="stat-value" id="stat-progress">0</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon success"><i class="fas fa-coins"></i></div>
+            <div><div class="stat-label">الإيرادات المحصلة (ر.س)</div><div class="stat-value" id="stat-revenue">0</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon danger"><i class="fas fa-file-invoice-dollar"></i></div>
+            <div><div class="stat-label">الذمم المفتوحة (ر.س)</div><div class="stat-value" id="stat-debt">0</div></div>
+          </div>
+        </div>
+
+        <!-- Three-column grid -->
+        <div class="grid-3 mb-4">
+          <div class="card" style="grid-column:span 1">
+            <div class="card-header"><h3><i class="fas fa-check-circle text-success me-2"></i>جاهزة للتسليم</h3></div>
+            <div class="card-body"><div class="quick-feed" id="ready-feed"></div></div>
+          </div>
+          <div class="card" style="grid-column:span 1">
+            <div class="card-header"><h3><i class="fas fa-clock text-warning me-2"></i>متأخرة / تقترب</h3></div>
+            <div class="card-body"><div class="quick-feed" id="late-feed"></div></div>
+          </div>
+          <div class="card" style="grid-column:span 1">
+            <div class="card-header"><h3><i class="fas fa-history text-primary me-2"></i>أحدث النشاطات</h3></div>
+            <div class="card-body"><div id="recent-feed"></div></div>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="card">
+          <div class="card-header"><h3><i class="fas fa-chart-bar me-2 text-primary"></i>مؤشر الإيرادات السنوية</h3></div>
+          <div class="card-body" style="height:280px"><canvas id="monthly-chart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ════ VIEW: WORK ORDERS ════ -->
+      <div id="view-work-orders" class="view hidden">
+        <div class="flex gap-3 mb-3 flex-wrap items-center justify-between">
+          <div class="flex gap-2 flex-wrap">
+            <div class="search-wrap">
+              <i class="fas fa-search"></i>
+              <input type="text" placeholder="بحث باللوحة أو العميل..." id="orders-search" oninput="State.ordersSearch=this.value;renderOrdersTable()">
+            </div>
+            <select id="work-orders-tech-filter" class="form-input" style="width:auto" onchange="renderOrdersTable()">
+              <option value="all">كل الفنيين</option>
+            </select>
+            <label class="flex items-center gap-2 text-sm" style="cursor:pointer">
+              <input type="checkbox" id="hide-closed-toggle" onchange="renderOrdersTable()"> إخفاء المغلقة
+            </label>
+          </div>
+          <button class="btn btn-primary" onclick="openNewOrderForm()">
+            <i class="fas fa-plus"></i> أمر تشغيل جديد
+          </button>
+        </div>
+
+        <!-- Status filter tabs -->
+        <div class="filter-tabs">
+          <button class="filter-tab active" onclick="State.ordersFilter='all';document.querySelectorAll('.filter-tab').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderOrdersTable()">الكل</button>
+          <button class="filter-tab tab-gray" onclick="State.ordersFilter='draft';document.querySelectorAll('.filter-tab').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderOrdersTable()">مسودة</button>
+          <button class="filter-tab tab-danger" onclick="State.ordersFilter='pending_payment';document.querySelectorAll('.filter-tab').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderOrdersTable()">انتظار الدفع</button>
+          <button class="filter-tab tab-primary" onclick="State.ordersFilter='paid_ready';document.querySelectorAll('.filter-tab').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderOrdersTable()">جاهز للعمل</button>
+          <button class="filter-tab tab-info" onclick="State.ordersFilter='in_progress';document.querySelectorAll('.filter-tab').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderOrdersTable()">قيد الصيانة</button>
+          <button class="filter-tab tab-success-light" onclick="State.ordersFilter='ready_for_delivery';document.querySelectorAll('.filter-tab').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderOrdersTable()">جاهز للتسليم</button>
+          <button class="filter-tab tab-success" onclick="State.ordersFilter='closed';document.querySelectorAll('.filter-tab').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderOrdersTable()">مغلق</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="sortable" onclick="sortOrders('id')" style="text-align: right;">رقم الأمر</th>
+                <th class="sortable" onclick="sortOrders('createdAt')">التاريخ</th>
+                <th>موعد التسليم</th>
+                <th>اللوحة / العميل</th>
+                <th>الفني</th>
+                <th class="sortable" onclick="sortOrders('totalAmount')">الإجمالي</th>
+                <th>المتبقي</th>
+                <th>الحالة</th>
+              </tr>
+            </thead>
+            <tbody id="orders-tbody">
+              <tr><td colspan="8" class="text-center p-4"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ════ VIEW: NEW / EDIT ORDER ════ -->
+      <div id="view-new-order" class="view hidden">
+        <form id="store-order-form">
+          <input type="hidden" id="store-order-id">
+          <div class="grid-2 mb-4">
+            <!-- Customer & Car Info -->
+            <div class="card card-pad">
+              <h3 class="mb-3"><i class="fas fa-user me-2 text-primary"></i>بيانات العميل والسيارة</h3>
+              <div class="form-group">
+                <label>اسم العميل أو رقم الجوال *</label>
+                <input type="text" id="store-cust-info" class="form-input" placeholder="مثال: أحمد 0500000000" required>
+              </div>
+              <div class="form-group">
+                <label>ماركة وموديل السيارة *</label>
+                <input type="text" id="store-car-model" class="form-input" placeholder="مثال: كامري 2022" required>
+              </div>
+              <div class="form-group">
+                <label>رقم اللوحة *</label>
+                <input type="text" id="store-car-plate" class="form-input" placeholder="ABC 123" required>
+              </div>
+              <div class="form-group">
+                <label>ملاحظات للعميل</label>
+                <textarea id="store-notes" class="form-input" rows="3" placeholder="قطع غيار محضرة، تعليمات خاصة..."></textarea>
+              </div>
+            </div>
+
+            <!-- Financial -->
+            <div>
+              <div class="card card-pad mb-3">
+                <h3 class="mb-3"><i class="fas fa-calculator me-2 text-primary"></i>التكاليف والخصومات</h3>
+                <div class="form-group">
+                  <label>أجور اليد العاملة (ر.س)</label>
+                  <input type="number" id="store-labor" class="form-input" value="0" min="0">
+                </div>
+                <div class="form-group">
+                  <label>الخصم (ر.س)</label>
+                  <input type="number" id="store-discount" class="form-input" value="0" min="0">
+                </div>
+
+                <div class="summary-box">
+                  <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:.5rem">إجمالي الفاتورة</div>
+                  <div class="total-amount" id="store-grand-total">0</div>
+                  <div style="font-size:.7rem;color:var(--primary)">ر.س</div>
+                  <div style="border-top:1px solid var(--primary-border);margin-top:.75rem;padding-top:.75rem">
+                    <div class="summary-row"><span>مجموع الخدمات</span><span id="store-services-total">0 ر.س</span></div>
+                    <div class="summary-row"><span>المصنعية</span><span id="store-labor-total">0 ر.س</span></div>
+                    <div class="summary-row text-danger"><span>الخصم</span><span id="store-discount-total" class="text-danger">0</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card card-pad">
+                <h3 class="mb-3"><i class="fas fa-sticky-note me-2 text-primary"></i>ملاحظة داخلية</h3>
+                <div class="form-group">
+                  <textarea id="store-internal-note" class="form-input" rows="2" placeholder="ملاحظة للفريق (سرية عن العميل)..."></textarea>
+                </div>
+                <div class="form-group">
+                  <label>
+                    <i class="fas fa-paperclip text-primary"></i> إرفاق ملف/صورة
+                    <input type="file" id="store-internal-attachment" style="display:none" accept="image/*,.pdf">
+                  </label>
+                  <span id="store-attachment-preview" class="text-xs text-muted"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Services Selection -->
+          <div class="card card-pad mb-4">
+            <div class="flex items-center justify-between mb-3">
+              <h3><i class="fas fa-tags me-2 text-primary"></i>الخدمات المطلوبة</h3>
+              <div class="search-wrap" style="min-width:180px">
+                <i class="fas fa-search"></i>
+                <input type="text" id="store-services-search" placeholder="بحث في الخدمات..." oninput="filterStoreServices()">
+              </div>
+            </div>
+            <div class="services-grid" id="store-services-list">
+              <div class="spinner"></div>
+            </div>
+          </div>
+
+          <!-- Action buttons -->
+          <div class="flex gap-3 flex-wrap">
+            <button type="submit" name="action" value="draft" class="btn btn-light">
+              <i class="fas fa-save"></i> حفظ كمسودة
+            </button>
+            <button type="submit" name="action" value="pending_payment" class="btn btn-primary btn-lg">
+              <i class="fas fa-paper-plane"></i> إرسال للخزينة
+            </button>
+            <button type="button" class="btn btn-outline" onclick="switchView('view-work-orders', 'أوامر التشغيل')">
+              <i class="fas fa-times"></i> إلغاء والعودة
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ════ VIEW: ORDER DETAILS ════ -->
+      <div id="view-order-details" class="view hidden">
+        <div class="flex items-center gap-3 mb-4 flex-wrap">
+          <button class="btn btn-outline btn-sm" onclick="switchView('view-work-orders','أوامر التشغيل')">
+            <i class="fas fa-arrow-right"></i> العودة
+          </button>
+          <div>
+            <span class="fw-bold text-xl" id="detail-order-id"></span>
+            <span class="text-muted text-sm ms-2" id="detail-order-meta"></span>
+          </div>
+          <div id="detail-status-badge"></div>
+        </div>
+
+        <div class="grid-2 mb-4">
+          <!-- Info Card -->
+          <div class="card card-pad">
+            <h3 class="mb-3"><i class="fas fa-car me-2 text-primary"></i>بيانات العميل والسيارة</h3>
+            <table style="width:100%;border-collapse:collapse;font-size:.9rem">
+              <tr><td class="text-muted fw-bold" style="padding:.4rem 0;width:35%">العميل:</td><td id="detail-cust-name" class="fw-bold"></td></tr>
+              <tr><td class="text-muted fw-bold" style="padding:.4rem 0">السيارة:</td><td id="detail-car-model"></td></tr>
+              <tr><td class="text-muted fw-bold" style="padding:.4rem 0">اللوحة:</td><td id="detail-car-plate" class="fw-bold text-primary"></td></tr>
+              <tr><td class="text-muted fw-bold" style="padding:.4rem 0">الفني:</td><td id="detail-created-by"></td></tr>
+              <tr><td class="text-muted fw-bold" style="padding:.4rem 0">موعد التسليم:</td><td id="detail-delivery-date"></td></tr>
+            </table>
+          </div>
+
+          <!-- Financial Card -->
+          <div class="card card-pad">
+            <h3 class="mb-3"><i class="fas fa-file-invoice-dollar me-2 text-primary"></i>تفاصيل الفاتورة</h3>
+            <ul id="detail-services-list" style="list-style:none;padding:0;margin:0 0 1rem 0"></ul>
+            <div class="summary-box">
+              <div class="summary-row"><span>الخدمات والقطع:</span><span id="detail-svc-total"></span></div>
+              <div class="summary-row"><span>المصنعية:</span><span id="detail-labor"></span></div>
+              <div class="summary-row text-danger"><span>الخصم:</span><span id="detail-discount"></span></div>
+              <div style="border-top:1px solid var(--primary-border);margin-top:.5rem;padding-top:.5rem;font-size:1.1rem;font-weight:800;color:var(--primary)">
+                الإجمالي: <span id="detail-grand-total"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes box -->
+        <div id="detail-notes-box" class="card card-pad mb-4" style="display:none">
+          <h4 class="mb-2"><i class="fas fa-quote-right me-2 text-muted"></i>ملاحظات العميل</h4>
+          <p id="detail-notes-content" class="text-secondary text-sm"></p>
+        </div>
+
+        <!-- Actions -->
+        <div class="card card-pad mb-4">
+          <h3 class="mb-3"><i class="fas fa-bolt me-2 text-warning"></i>الإجراءات المتاحة</h3>
+          <div class="flex flex-wrap gap-2" id="detail-actions"></div>
+        </div>
+
+        <!-- Reassign Technician -->
+        <div id="reassign-wrap" class="card card-pad mb-4 hidden">
+          <h3 class="mb-3"><i class="fas fa-exchange-alt me-2 text-primary"></i>تحويل الأمر لفني آخر</h3>
+          <div class="flex gap-2 items-center">
+            <select id="reassign-tech-sel" class="form-input" style="max-width:300px"></select>
+            <button class="btn btn-outline-primary" onclick="reassignTechnicianAction()">
+              <i class="fas fa-check"></i> تأكيد التحويل
+            </button>
+          </div>
+        </div>
+
+        <!-- Internal Notes -->
+        <div class="card card-pad mb-4">
+          <h3 class="mb-3"><i class="fas fa-comments me-2 text-primary"></i>الملاحظات الداخلية</h3>
+          <div id="detail-notes-list" class="notes-list mb-3"></div>
+          <div style="border-top:1px solid var(--border);padding-top:1rem">
+            <textarea id="new-internal-note" class="form-input mb-2" rows="2" placeholder="أضف ملاحظة للفريق..."></textarea>
+            <div class="flex gap-2 items-center flex-wrap">
+              <label class="btn btn-light btn-sm" style="cursor:pointer">
+                <i class="fas fa-paperclip"></i> مرفق
+                <input type="file" id="new-note-attachment" style="display:none" accept="image/*,.pdf" onchange="document.getElementById('attachment-preview-name').textContent=this.files[0]?.name||''">
+              </label>
+              <span id="attachment-preview-name" class="text-xs text-muted"></span>
+              <button id="btn-add-note" class="btn btn-primary btn-sm" onclick="addOrderNoteAction()">
+                <i class="fas fa-paper-plane me-1"></i>إرسال وحفظ
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Audit Log -->
+        <div class="card card-pad">
+          <h3 class="mb-3"><i class="fas fa-history me-2 text-primary"></i>سجل العمليات</h3>
+          <div id="detail-history-list"></div>
+        </div>
+      </div>
+
+      <!-- ════ VIEW: ACCOUNTANT ════ -->
+      <div id="view-accountant" class="view hidden">
+        <div class="flex gap-3 mb-3 flex-wrap items-center justify-between">
+          <div class="flex gap-2 flex-wrap">
+            <div class="search-wrap">
+              <i class="fas fa-search"></i>
+              <input type="text" id="search-accountant" placeholder="بحث رقم، لوحة، عميل..." oninput="renderAccountantGrid()">
+            </div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="initAccountant()">
+            <i class="fas fa-sync"></i> تحديث
+          </button>
+        </div>
+
+        <div class="filter-tabs">
+          <button class="filter-tab active" onclick="State.acctFilter='all';document.querySelectorAll('#view-accountant .filter-tab').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderAccountantGrid()">الكل</button>
+          <button class="filter-tab tab-danger" onclick="State.acctFilter='unpaid';document.querySelectorAll('#view-accountant .filter-tab').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderAccountantGrid()">غير مسدد</button>
+          <button class="filter-tab tab-warning" onclick="State.acctFilter='partially_paid';document.querySelectorAll('#view-accountant .filter-tab').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderAccountantGrid()">مسدد جزئياً</button>
+          <button class="filter-tab tab-success" onclick="State.acctFilter='paid';document.querySelectorAll('#view-accountant .filter-tab').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderAccountantGrid()">مسدد بالكامل</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="text-align: right;">رقم الأمر</th>
+                <th>التاريخ</th>
+                <th>اللوحة / العميل</th>
+                <th>المطلوب (ر.س)</th>
+                <th>المتبقي (ر.س)</th>
+                <th>حالة السداد</th>
+              </tr>
+            </thead>
+            <tbody id="acct-tbody">
+              <tr><td colspan="6" class="text-center p-4"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ════ VIEW: SERVICES ════ -->
+      <div id="view-services" class="view hidden">
+        <div class="grid-2">
+          <!-- Table -->
+          <div class="card" style="grid-column:span 2">
+            <div class="card-header">
+              <h3><i class="fas fa-tags me-2 text-primary"></i>الخدمات والأسعار</h3>
+              <div class="flex gap-2">
+                <div class="search-wrap" style="min-width:200px">
+                  <i class="fas fa-search"></i>
+                  <input type="text" id="search-services" placeholder="بحث..." oninput="loadServicesTable()">
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="openServicePanel()">
+                  <i class="fas fa-plus"></i> إضافة خدمة
+                </button>
+              </div>
+            </div>
+            <div class="table-wrap" style="border:none;border-radius:0">
+              <table class="data-table">
+                <thead>
+                  <tr><th>الخدمة والأيقونة</th><th>السعر</th><th>تاريخ الإضافة</th><th>إجراء</th></tr>
+                </thead>
+                <tbody id="services-tbody">
+                  <tr><td colspan="4" class="text-center p-4"><div class="spinner"></div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Service Form Panel -->
+        <div id="service-panel" class="card card-pad mt-4 hidden">
+          <div class="flex items-center justify-between mb-3">
+            <h3><i class="fas fa-edit me-2 text-primary"></i>تعديل / إضافة خدمة</h3>
+            <button class="btn btn-light btn-sm" onclick="closeServicePanel()"><i class="fas fa-times"></i></button>
+          </div>
+          <form id="service-form">
+            <input type="hidden" id="srv-id">
+            <div class="grid-2">
+              <div class="form-group">
+                <label>اسم الخدمة *</label>
+                <input type="text" id="srv-name" class="form-input" placeholder="مثال: تلميع سيارة" required>
+              </div>
+              <div class="form-group">
+                <label>السعر (ر.س) *</label>
+                <input type="number" id="srv-price" class="form-input" placeholder="150" required min="0">
+              </div>
+              <div class="form-group" style="grid-column:span 2">
+                <label>أيقونة FontAwesome (اسم الكلاس)</label>
+                <input type="text" id="srv-icon" class="form-input" placeholder="fa-wrench">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>حفظ الخدمة</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- ════ VIEW: USERS ════ -->
+      <div id="view-users" class="view hidden">
+        <div class="grid-2">
+          <!-- New user form -->
+          <div class="card card-pad">
+            <h3 class="mb-3"><i class="fas fa-user-plus me-2 text-primary"></i>إضافة موظف جديد</h3>
+            <form id="new-user-form">
+              <div class="form-group">
+                <label>الاسم الكامل *</label>
+                <input type="text" id="new-user-name" class="form-input" placeholder="خالد العتيبي" required>
+              </div>
+              <div class="form-group">
+                <label>البريد الإلكتروني *</label>
+                <input type="email" id="new-user-email" class="form-input" placeholder="staff@company.com" required>
+              </div>
+              <div class="form-group">
+                <label>كلمة المرور المؤقتة *</label>
+                <input type="text" id="new-user-pass" class="form-input" placeholder="Aman@2024" required minlength="6">
+              </div>
+              <div class="form-group">
+                <label>الدور والصلاحية *</label>
+                <select id="new-user-role" class="form-input">
+                  <option value="technician">فني صيانة</option>
+                  <option value="accountant">محاسب</option>
+                  <option value="admin">مدير نظام</option>
+                  <option value="pending">معلق (انتظار موافقة)</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-primary btn-w-full">
+                <i class="fas fa-plus-circle me-2"></i>إنشاء الحساب
+              </button>
+            </form>
+          </div>
+
+          <!-- Users list -->
+          <div class="card">
+            <div class="card-header">
+              <h3><i class="fas fa-users me-2 text-primary"></i>قائمة الموظفين</h3>
+              <div class="search-wrap" style="min-width:180px">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-users" placeholder="بحث..." oninput="renderUsersList()">
+              </div>
+            </div>
+            <div class="table-wrap" style="border:none;border-radius:0">
+              <table class="data-table">
+                <thead>
+                  <tr><th>الاسم / البريد</th><th>الدور الحالي</th><th>تاريخ الانضمام</th><th>تعديل الدور</th></tr>
+                </thead>
+                <tbody id="users-tbody">
+                  <tr><td colspan="4" class="text-center p-4"><div class="spinner"></div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════ VIEW: PROFILE ════ -->
+      <div id="view-profile" class="view hidden">
+        <div class="card" style="max-width:600px;margin:0 auto">
+          <div class="profile-cover"></div>
+          <div class="profile-avatar-wrap">
+            <div class="profile-avatar">
+              <i class="fas fa-user-circle" id="profile-avatar-icon"></i>
+              <img id="profile-avatar-preview" src="" alt="avatar" style="display:none">
+            </div>
+            <div>
+              <div class="text-xl fw-bold" id="profile-name-display"></div>
+              <div class="text-muted text-sm" id="profile-role-display"></div>
+            </div>
+          </div>
+          <div class="card-body">
+            <h3 class="mb-3">تعديل بيانات الحساب</h3>
+            <div class="form-group">
+              <label>الاسم الكامل</label>
+              <input type="text" id="profile-fullname" class="form-input" placeholder="اسمك الكامل">
+            </div>
+            <div class="form-group">
+              <label>كلمة المرور الجديدة</label>
+              <input type="password" id="profile-password" class="form-input" placeholder="اتركه فارغاً لعدم التغيير">
+            </div>
+            <div class="form-group">
+              <label>الصورة الشخصية</label>
+              <label class="btn btn-outline btn-sm" style="cursor:pointer">
+                <i class="fas fa-camera me-1"></i> اختيار صورة
+                <input type="file" id="avatar-upload" accept="image/*" style="display:none">
+              </label>
+            </div>
+            <button id="save-profile-btn" class="btn btn-primary">
+              <i class="fas fa-save me-2"></i>حفظ التعديلات
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════ VIEW: PENDING ════ -->
+      <div id="view-pending" class="view hidden">
+        <div class="empty-state" style="margin-top:5rem">
+          <i class="fas fa-user-clock" style="color:var(--warning)"></i>
+          <h3>حسابك قيد المراجعة</h3>
+          <p>حسابك مسجل بنجاح ولكن لم تُعيَّن له صلاحيات بعد.<br>يرجى التواصل مع مدير النظام لتفعيل صلاحياتك.</p>
+          <button class="btn btn-outline mt-4" onclick="Database.logout().then(()=>location.reload())">
+            <i class="fas fa-sign-out-alt me-2"></i>تسجيل الخروج
+          </button>
+        </div>
+      </div>
+
+      <!-- ════ VIEW: SUSPENDED ════ -->
+      <div id="view-suspended" class="view hidden">
+        <div class="empty-state" style="margin-top:5rem">
+          <i class="fas fa-user-slash" style="color:var(--danger)"></i>
+          <h3>تم إيقاف حسابك</h3>
+          <p>لقد تم تعطيل صلاحيات هذا الحساب من قِبل إدارة النظام.<br>يرجى التواصل مع المدير لمعرفة السبب.</p>
+          <button class="btn btn-outline mt-4" onclick="Database.logout().then(()=>location.reload())">
+            <i class="fas fa-sign-out-alt me-2"></i>تسجيل الخروج
+          </button>
+        </div>
+      </div>
+
+    </div><!-- end .content-area -->
+  </div><!-- end .main-content -->
+</div><!-- end #dashboard-shell -->
+
+<!-- ════ MODALS ════ -->
+
+<!-- Delivery Date Modal -->
+<div id="delivery-modal" class="modal-backdrop hidden" onclick="if(event.target===this)closeDeliveryModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="fas fa-calendar-alt text-primary me-2"></i>تحديد موعد بدء العمل والتسليم</h3>
+      <button class="btn btn-light btn-icon btn-sm" onclick="closeDeliveryModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="delivery-order-id">
+      <p class="text-muted text-sm mb-3">حدد الموعد المتوقع لانتهاء الصيانة وتسليمها للعميل.</p>
+      <div class="form-group">
+        <label>موعد التسليم المتوقع</label>
+        <input type="datetime-local" id="delivery-date-input" class="form-input">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeDeliveryModal()">إلغاء</button>
+      <button class="btn btn-primary" onclick="confirmDeliveryDate()">
+        <i class="fas fa-play me-1"></i>بدء العمل وتأكيد الموعد
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Modal -->
+<div id="payment-modal" class="modal-backdrop hidden" onclick="if(event.target===this)closePaymentModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="payment-modal-title"><i class="fas fa-money-bill-wave text-success me-2"></i>تسجيل دفعة</h3>
+      <button class="btn btn-light btn-icon btn-sm" onclick="closePaymentModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="payment-order-id">
+      <p class="text-sm text-muted mb-1">المتبقي قبل الدفع:</p>
+      <p class="fw-bold text-xl text-danger mb-3" id="payment-remaining"></p>
+      <div class="form-group">
+        <label>المبلغ المدفوع (ر.س) *</label>
+        <input type="number" id="payment-amount-input" class="form-input" min="1" required>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closePaymentModal()">إلغاء</button>
+      <button class="btn btn-success" onclick="confirmPayment()">
+        <i class="fas fa-check-circle me-1"></i>تأكيد الدفعة وحفظها
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Hamburger button: show when sidebar is a drawer (<=1024px)
+  function syncMenuToggle() {
+    const btn = document.getElementById('menu-toggle');
+    if (btn) btn.style.display = window.innerWidth <= 1024 ? 'flex' : 'none';
+  }
+  syncMenuToggle();
+  window.addEventListener('resize', syncMenuToggle);
+</script>
+
+
+</body>
+</html>
