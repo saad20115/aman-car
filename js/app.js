@@ -164,8 +164,7 @@ function bindLoginForm() {
 function showShell() {
   const shell = document.getElementById('dashboard-shell');
   shell?.classList.remove('hidden');
-  
-  // Populate car years dropdown
+
   const yearSelect = document.getElementById('store-car-year');
   if (yearSelect && yearSelect.options.length <= 1) {
     const currentYear = new Date().getFullYear();
