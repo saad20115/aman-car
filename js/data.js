@@ -51,9 +51,9 @@ const _buildMockOrders = () => {
 };
 
 const MOCK_PROFILES = [
-  { id: 'demo-admin-id', full_name: 'المدير العام (تجريبي)', email: 'admin@amancar.com', role: 'admin', created_at: new Date().toISOString() },
-  { id: 'u2', full_name: 'خالد ميكانيكي (تجريبي)', email: 'tech@amancar.com', role: 'technician', created_at: new Date().toISOString() },
-  { id: 'u3', full_name: 'سالم المحاسب (تجريبي)', email: 'acc@amancar.com', role: 'accountant', created_at: new Date().toISOString() },
+  { id: 'demo-admin-id', full_name: 'المدير العام (تجريبي)', email: 'admin@amancar.com', role: 'admin', permissions: {}, created_at: new Date().toISOString() },
+  { id: 'u2', full_name: 'خالد ميكانيكي (تجريبي)', email: 'tech@amancar.com', role: 'technician', permissions: {}, created_at: new Date().toISOString() },
+  { id: 'u3', full_name: 'سالم المحاسب (تجريبي)', email: 'acc@amancar.com', role: 'accountant', permissions: { viewServices: true }, created_at: new Date().toISOString() },
 ];
 
 /* ── Cache ── */
@@ -103,6 +103,7 @@ export const Database = {
         name: profile?.full_name || 'موظف',
         role: profile?.role || 'pending',
         avatarUrl: profile?.avatar_url || null,
+        permissions: profile?.permissions || {},
       };
     } catch (e) {
       console.error('Session error:', e);
@@ -121,6 +122,7 @@ export const Database = {
       name: profile?.full_name || 'موظف',
       role: profile?.role || 'pending',
       avatarUrl: profile?.avatar_url || null,
+      permissions: profile?.permissions || {},
     };
   },
 
@@ -151,7 +153,7 @@ export const Database = {
       _profilesCache = data || [];
       if (_profilesCache.length === 0) {
         const u = await this.getCurrentSession();
-        if (u) _profilesCache.push({ id: u.id, full_name: u.name, email: u.email, role: u.role, created_at: new Date().toISOString() });
+        if (u) _profilesCache.push({ id: u.id, full_name: u.name, email: u.email, role: u.role, permissions: u.permissions || {}, created_at: new Date().toISOString() });
       }
       return _profilesCache;
     } catch (e) {
@@ -163,6 +165,13 @@ export const Database = {
   async updateUserRole(userId, newRole) {
     if (isDemoMode) { const p = MOCK_PROFILES.find(x => x.id === userId); if (p) p.role = newRole; _profilesCache = null; return; }
     const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId);
+    if (error) throw new Error(error.message);
+    _profilesCache = null;
+  },
+
+  async updateUserPermissions(userId, permissions) {
+    if (isDemoMode) { const p = MOCK_PROFILES.find(x => x.id === userId); if (p) p.permissions = permissions; _profilesCache = null; return; }
+    const { error } = await supabase.from('profiles').update({ permissions }).eq('id', userId);
     if (error) throw new Error(error.message);
     _profilesCache = null;
   },
@@ -287,7 +296,7 @@ export const Database = {
     if (fe) throw new Error(fe.message);
     let status = orderData.status || current.status;
     const logs = Array.isArray(current.logs) ? current.logs : [];
-    if (current.status !== 'draft' && Number(current.total_amount) !== Number(orderData.totalAmount)) { status = 'pending_payment'; logs.push({ status: 'pending_payment', timestamp: new Date().toISOString(), by: orderData.createdBy, note: 'Amount changed' }); }
+    if (current.status !== 'draft' && Number(current.total_amount) !== Number(orderData.totalAmount)) { status = 'pending_payment'; logs.push({ status: 'pending_payment', timestamp: new Date().toISOString(), by: orderData.createdBy, note: 'تم تعديل إجمالي الفاتورة' }); }
     const { data, error } = await supabase.from('orders').update({ customer_info: orderData.customerInfo, car_plate: orderData.carPlate, car_model: orderData.carModel, services: orderData.services, total_amount: orderData.totalAmount, labor_cost: orderData.laborCost || 0, discount: orderData.discount || 0, notes: orderData.notes || '', status, logs }).eq('id', id).select().maybeSingle();
     if (error) throw new Error(error.message);
     _ordersCache = null;
@@ -328,7 +337,7 @@ export const Database = {
     return _mapOrder(data);
   },
 
-  async processPayment(id, amountPaid) {
+  async processPayment(id, amountPaid, byUser = 'Accountant') {
     if (isDemoMode) {
       if (!_ordersCache) _ordersCache = _buildMockOrders();
       const order = _ordersCache.find(o => o.id === id);
@@ -336,6 +345,9 @@ export const Database = {
       order.paidAmount = order.paidAmount + amountPaid;
       if (order.paidAmount >= order.totalAmount && order.status !== 'closed' && order.status !== 'ready_for_delivery') order.status = 'paid_ready';
       else if (order.paidAmount > 0 && order.paidAmount < order.totalAmount) order.status = 'partially_paid';
+      
+      const noteText = amountPaid < 0 ? `تم رد الفائض: ${Math.abs(amountPaid)} ريال` : `Payment: ${amountPaid} SAR`;
+      order.logs.push({ status: order.status, timestamp: new Date().toISOString(), by: byUser, note: noteText });
       return order;
     }
     const { data: current } = await supabase.from('orders').select('paid_amount, total_amount, status, logs').eq('id', id).maybeSingle();
@@ -359,7 +371,7 @@ export const Database = {
     }
     
     const noteText = amountPaid < 0 ? `تم رد الفائض: ${Math.abs(amountPaid)} ريال` : `Payment: ${amountPaid} SAR`;
-    logs.push({ status: newStatus, timestamp: new Date().toISOString(), by: 'Accountant', note: noteText });
+    logs.push({ status: newStatus, timestamp: new Date().toISOString(), by: byUser, note: noteText });
     
     const { data, error } = await supabase.from('orders').update({ paid_amount: newPaid, status: newStatus, logs }).eq('id', id).select().maybeSingle();
     if (error) throw new Error(error.message);

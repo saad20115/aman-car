@@ -37,6 +37,7 @@ const translations = {
     NAV_ACCOUNTANT: 'الخزينة والحسابات',
     NAV_SERVICES: 'الخدمات والتسعير',
     NAV_USERS: 'إدارة الموظفين',
+    NAV_CUSTOMERS: 'العملاء والسيارات',
     NAV_PROFILE: 'إعدادات الحساب',
 
     // Page Titles
@@ -194,6 +195,7 @@ const translations = {
     ROLE_TECHNICIAN: 'فني صيانة',
     ROLE_ACCOUNTANT: 'محاسب',
     ROLE_ADMIN: 'مدير نظام',
+    ROLE_RECEPTIONIST: 'موظف استقبال',
     ROLE_PENDING: 'حساب معلق (انتظار)',
     ROLE_SUSPENDED: 'موقوف',
     EMPLOYEES_LIST: 'قائمة الموظفين',
@@ -261,6 +263,7 @@ const translations = {
     NAV_WORK_ORDERS: 'Work Orders',
     NAV_ACCOUNTANT: 'Cashier & Accounts',
     NAV_SERVICES: 'Services & Pricing',
+    NAV_CUSTOMERS: 'Customers & Cars',
     NAV_USERS: 'Staff Management',
     NAV_PROFILE: 'Account Settings',
     TITLE_DASHBOARD: 'Dashboard',
@@ -399,6 +402,7 @@ const translations = {
     ROLE_TECHNICIAN: 'Technician',
     ROLE_ACCOUNTANT: 'Accountant',
     ROLE_ADMIN: 'System Admin',
+    ROLE_RECEPTIONIST: 'Receptionist',
     ROLE_PENDING: 'Pending Account',
     ROLE_SUSPENDED: 'Suspended',
     EMPLOYEES_LIST: 'Employee List',

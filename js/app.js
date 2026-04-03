@@ -164,6 +164,19 @@ function bindLoginForm() {
 function showShell() {
   const shell = document.getElementById('dashboard-shell');
   shell?.classList.remove('hidden');
+  
+  // Populate car years dropdown
+  const yearSelect = document.getElementById('store-car-year');
+  if (yearSelect && yearSelect.options.length <= 1) {
+    const currentYear = new Date().getFullYear();
+    for (let y = currentYear + 1; y >= 1970; y--) {
+      const opt = document.createElement('option');
+      opt.value = y;
+      opt.textContent = y;
+      yearSelect.appendChild(opt);
+    }
+  }
+
   renderSidebarUser();
   buildNavigation();
   bindShellEvents();
@@ -199,10 +212,11 @@ function buildNavigation() {
   } else if (role === 'pending' || !role) {
     links.push({ view: 'view-pending', icon: 'fa-user-clock', key: 'TITLE_DASHBOARD' });
   } else {
-    links.push({ view: 'view-dashboard', icon: 'fa-chart-pie', key: 'NAV_DASHBOARD' });
-    if (role === 'admin' || role === 'technician') links.push({ view: 'view-work-orders', icon: 'fa-clipboard-list', key: 'NAV_WORK_ORDERS' });
-    if (role === 'admin' || role === 'accountant') links.push({ view: 'view-accountant', icon: 'fa-cash-register', key: 'NAV_ACCOUNTANT' });
-    if (role === 'admin' || role === 'accountant') links.push({ view: 'view-services', icon: 'fa-tags', key: 'NAV_SERVICES' });
+    if (role !== 'technician') links.push({ view: 'view-dashboard', icon: 'fa-chart-pie', key: 'NAV_DASHBOARD' });
+    if (role === 'admin' || role === 'technician' || role === 'receptionist') links.push({ view: 'view-work-orders', icon: 'fa-clipboard-list', key: 'NAV_WORK_ORDERS' });
+    if (role === 'admin' || role === 'accountant' || State.user.permissions?.viewAccountant) links.push({ view: 'view-accountant', icon: 'fa-cash-register', key: 'NAV_ACCOUNTANT' });
+    if (role === 'admin' || State.user.permissions?.viewServices) links.push({ view: 'view-services', icon: 'fa-tags', key: 'NAV_SERVICES' });
+    if (role === 'admin' || role === 'accountant' || role === 'technician' || role === 'receptionist') links.push({ view: 'view-customers', icon: 'fa-address-book', key: 'NAV_CUSTOMERS' });
     if (role === 'admin') links.push({ view: 'view-users', icon: 'fa-users-cog', key: 'NAV_USERS' });
   }
 
@@ -305,6 +319,7 @@ window.switchView = function switchView(viewId, title) {
     'view-work-orders': initWorkOrders,
     'view-accountant': initAccountant,
     'view-services': initServices,
+    'view-customers': initCustomers,
     'view-users': initUsers,
     'view-profile': initProfile,
   };
@@ -381,10 +396,27 @@ async function initDashboard() {
     const inProgress = orders.filter(o => ['in_progress','paid_ready'].includes(o.status)).length;
     const sumPaid = orders.reduce((s,o) => s+o.paidAmount,0);
     const sumTotal = orders.reduce((s,o) => s+o.totalAmount,0);
+    
     el('stat-total').textContent = orders.length;
     el('stat-progress').textContent = inProgress;
-    el('stat-revenue').textContent = sumPaid.toLocaleString('ar-SA');
-    el('stat-debt').textContent = Math.max(0, sumTotal-sumPaid).toLocaleString('ar-SA');
+    
+    const isTech = State.user.role === 'technician';
+    if (el('stat-revenue') && el('stat-revenue').closest('.stat-card')) {
+      el('stat-revenue').closest('.stat-card').style.display = isTech ? 'none' : 'flex';
+    }
+    if (el('stat-debt') && el('stat-debt').closest('.stat-card')) {
+      el('stat-debt').closest('.stat-card').style.display = isTech ? 'none' : 'flex';
+    }
+    const chartCard = el('monthly-chart')?.closest('.card');
+    if (chartCard) chartCard.style.display = isTech ? 'none' : 'block';
+    
+    const quickBtn = el('quick-create-order-btn');
+    if (quickBtn) quickBtn.style.display = isTech ? 'none' : 'inline-flex';
+
+    if (!isTech) {
+      el('stat-revenue').textContent = sumPaid.toLocaleString('ar-SA');
+      el('stat-debt').textContent = Math.max(0, sumTotal-sumPaid).toLocaleString('ar-SA');
+    }
 
     renderRecentFeed(orders);
     renderQuickDeliveries(orders, now);
@@ -538,14 +570,18 @@ window.renderOrdersTable = function renderOrdersTable() {
     const pLabel = excess>0?'فائض':(remaining===0?'✓':(o.paidAmount>0?window.t('FILTER_PARTIAL'):window.t('FILTER_UNPAID')));
     const isLate = o.deliveryDate && new Date(o.deliveryDate)<new Date() && !['closed','ready_for_delivery'].includes(o.status);
     const assignedBy = (o.logs||[]).find(l=>l.status==='in_progress')?.by || o.createdBy || '-';
+    const isTech = State.user?.role === 'technician';
+    const totalContent = isTech ? '---' : `${(o.totalAmount||0).toLocaleString('ar-SA')} ${window.t('SAR')}`;
+    const diffContent = isTech ? '---' : `<span class="badge ${excess>0 ? 'badge-primary' : (remaining>0 ? (o.paidAmount>0 ? 'badge-warning' : 'badge-danger') : 'badge-success')}">${(excess>0 ? excess : remaining).toLocaleString('ar-SA')} <small style="opacity:0.8;font-weight:normal">(${pLabel})</small></span>`;
+
     return `<tr class="clickable" onclick="openOrderDetails('${o.id}')">
       <td class="fw-bold text-primary" dir="ltr" style="text-align: right;">#${o.id}</td>
       <td class="text-sm text-muted">${new Date(o.createdAt).toLocaleDateString('ar-SA')}</td>
       <td class="text-sm ${isLate?'text-danger fw-bold':''}">${o.deliveryDate?new Date(o.deliveryDate).toLocaleDateString('ar-SA'):'-'}</td>
       <td><div class="fw-bold text-sm">${o.carPlate}</div><div class="text-xs text-muted">${o.customerInfo}</div></td>
       <td><span class="badge badge-gray">${assignedBy}</span></td>
-      <td class="fw-bold">${(o.totalAmount||0).toLocaleString('ar-SA')} ${window.t('SAR')}</td>
-      <td><span class="badge ${excess>0 ? 'badge-primary' : (remaining>0 ? (o.paidAmount>0 ? 'badge-warning' : 'badge-danger') : 'badge-success')}">${(excess>0 ? excess : remaining).toLocaleString('ar-SA')} <small style="opacity:0.8;font-weight:normal">(${pLabel})</small></span></td>
+      <td class="fw-bold">${totalContent}</td>
+      <td>${diffContent}</td>
       <td><span class="badge badge-${st.badge}">${st.label}</span></td>
     </tr>`;
   }).join('');
@@ -560,15 +596,34 @@ window.sortOrders = function(field) {
 let selectedServices = {};
 
 window.openNewOrderForm = function() {
+  if (State.user?.role === 'technician') {
+    showToast('غير مصرح لك بإصدار أوامر', 'error');
+    return;
+  }
   State.currentEditOrderId = null;
   selectedServices = {};
   el('store-order-id').value = '';
-  el('store-cust-info').value = '';
-  el('store-car-model').value = '';
-  el('store-car-plate').value = '';
+  if (el('store-cust-phone')) el('store-cust-phone').value = '';
+  if (el('store-cust-name')) el('store-cust-name').value = '';
+  if (el('store-car-make')) el('store-car-make').value = '';
+  
+  const yearSelect = el('store-car-year');
+  if (yearSelect) {
+    yearSelect.value = '';
+    if (yearSelect.options.length <= 1) {
+      const currentYear = new Date().getFullYear();
+      for (let y = currentYear + 1; y >= 1970; y--) {
+        yearSelect.appendChild(new Option(y, y));
+      }
+    }
+  }
+
+  document.querySelectorAll('.plate-letter, .plate-number').forEach(input => input.value = '');
   el('store-labor').value = '0';
   el('store-discount').value = '0';
   el('store-notes').value = '';
+  const tbody = el('store-spare-parts-body');
+  if (tbody) tbody.innerHTML = `<tr><td class="text-center text-muted p-2">لا توجد قطع مضافة</td></tr>`;
   el('store-internal-note').value = '';
   el('store-attachment-preview').textContent = '';
   switchView('view-new-order', window.t('TITLE_NEW_ORDER'));
@@ -576,18 +631,72 @@ window.openNewOrderForm = function() {
 };
 
 window.openEditOrderForm = function(orderId) {
+  if (State.user?.role === 'technician') {
+    showToast('غير مصرح لك بتعديل أوامر', 'error');
+    return;
+  }
   const order = State.orders.find(o => o.id === orderId);
   if (!order) return;
   State.currentEditOrderId = orderId;
   selectedServices = {};
   (order.services || []).forEach(s => { selectedServices[s.id] = { ...s }; });
   el('store-order-id').value = orderId;
-  el('store-cust-info').value = order.customerInfo || '';
-  el('store-car-model').value = order.carModel || '';
-  el('store-car-plate').value = order.carPlate || '';
+  
+  const custInfo = order.customerInfo || '';
+  const phoneMatch = custInfo.match(/(\d{9,10})/);
+  if (phoneMatch) {
+    el('store-cust-phone').value = phoneMatch[0];
+    el('store-cust-name').value = custInfo.replace(phoneMatch[0], '').replace(/-|,/g, '').trim();
+  } else {
+    el('store-cust-phone').value = '';
+    el('store-cust-name').value = custInfo;
+  }
+
+  const carMod = order.carModel || '';
+  const yearMatch = carMod.match(/(\d{4})/);
+  if (yearMatch) {
+    el('store-car-year').value = yearMatch[0];
+    el('store-car-make').value = carMod.replace(yearMatch[0], '').trim();
+  } else {
+    el('store-car-year').value = '';
+    el('store-car-make').value = carMod;
+  }
+
+  const actPlate = order.carPlate || '';
+  const letters = actPlate.replace(/[^A-Za-zأ-ي]/g, '').slice(0, 4).padEnd(4, ' ').split('');
+  const numbers = actPlate.replace(/[^0-9٠-٩]/g, '').slice(0, 4).padEnd(4, ' ').split('');
+  
+  const letterInputs = document.querySelectorAll('.plate-letter');
+  const numberInputs = document.querySelectorAll('.plate-number');
+  
+  letterInputs.forEach((input, idx) => input.value = letters[idx]?.trim() || '');
+  numberInputs.forEach((input, idx) => input.value = numbers[idx]?.trim() || '');
   el('store-labor').value = order.laborCost || 0;
   el('store-discount').value = order.discount || 0;
-  el('store-notes').value = order.notes || '';
+  
+  const noteString = order.notes || '';
+  const splitPos = noteString.indexOf('\n\n=== قطع الغيار ===\n');
+  let mainNote = noteString;
+  let partsList = [];
+  if(splitPos !== -1) {
+    mainNote = noteString.substring(0, splitPos);
+    const partsStr = noteString.substring(splitPos + 19);
+    partsList = partsStr.split('\n').filter(p => p.startsWith('- ')).map(p => p.substring(2));
+  }
+  
+  el('store-notes').value = mainNote;
+  
+  const tbody = el('store-spare-parts-body');
+  if (tbody) {
+    if (partsList.length > 0) {
+      tbody.innerHTML = partsList.map(p => `<tr>
+        <td class="p-2"><input type="text" class="form-input cust-part-input" value="${p.replace(/"/g, '&quot;')}" style="background:transparent;border:none;padding:0"></td>
+        <td class="p-2 text-start" style="width:50px"><button type="button" class="btn btn-outline-danger btn-sm" onclick="removeSparePartRow(this)"><i class="fas fa-trash"></i></button></td>
+      </tr>`).join('');
+    } else {
+      tbody.innerHTML = `<tr><td class="text-center text-muted p-2">لا توجد قطع مضافة</td></tr>`;
+    }
+  }
   switchView('view-new-order', window.t('EDIT_ORDER'));
   loadServicesForStore();
 };
@@ -638,6 +747,31 @@ function renderServiceCards() {
     </div>`;
   }).join('');
 }
+
+window.addCustomerSparePart = function() {
+  const input = el('store-spare-part-input');
+  if (!input) return;
+  const val = input.value.trim();
+  if (!val) return;
+  const tbody = el('store-spare-parts-body');
+  if (tbody) {
+    if (tbody.querySelector('.text-muted')) tbody.innerHTML = ''; // remove empty state
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="p-2"><input type="text" class="form-input cust-part-input" value="${val.replace(/"/g, '&quot;')}" style="background:transparent;border:none;padding:0"></td>
+                    <td class="p-2 text-start" style="width:50px"><button type="button" class="btn btn-outline-danger btn-sm" onclick="removeSparePartRow(this)"><i class="fas fa-trash"></i></button></td>`;
+    tbody.appendChild(tr);
+  }
+  input.value = '';
+};
+
+window.removeSparePartRow = function(btn) {
+  const tr = btn.closest('tr');
+  if (tr) tr.remove();
+  const tbody = el('store-spare-parts-body');
+  if (tbody && tbody.children.length === 0) {
+    tbody.innerHTML = `<tr><td class="text-center text-muted p-2">لا توجد قطع مضافة</td></tr>`;
+  }
+};
 
 document.addEventListener('click', function(e) {
   const btn = e.target.closest('.qty-btn');
@@ -720,19 +854,46 @@ function bindOrderForm() {
     }
 
     const total = Math.max(0, svcTotal+labor-discount);
+    const mainNote = el('store-notes')?.value.trim() || '';
+    const partInputs = document.querySelectorAll('.cust-part-input');
+    const partsArray = [];
+    partInputs.forEach(inp => {
+      const v = inp.value.trim();
+      if(v) partsArray.push(v);
+    });
+    let finalNote = mainNote;
+    if (partsArray.length > 0) {
+      finalNote += '\n\n=== قطع الغيار ===\n' + partsArray.map(p => '- ' + p).join('\n');
+    }
+
+    const custName = el('store-cust-name')?.value.trim();
+    const custPhone = el('store-cust-phone')?.value.trim();
+    const carMake = el('store-car-make')?.value.trim();
+    const carYear = el('store-car-year')?.value.trim();
+    
+    if (!custName || !custPhone || !carMake || !carYear) {
+      showToast('أكمل بيانات العميل والسيارة', 'warning'); return;
+    }
+    
+    const pLetters = Array.from(document.querySelectorAll('.plate-letter')).map(i => i.value.trim()).join('');
+    const pNumbers = Array.from(document.querySelectorAll('.plate-number')).map(i => i.value.trim()).join('');
+    
+    if (!pLetters && !pNumbers) {
+      showToast('أكمل بيانات لوحة السيارة', 'warning'); return;
+    }
+
     const orderData = {
-      customerInfo: el('store-cust-info').value.trim(),
-      carModel: el('store-car-model').value.trim(),
-      carPlate: el('store-car-plate').value.trim().toUpperCase(),
+      customerInfo: `${custName} - ${custPhone}`,
+      carModel: `${carMake} ${carYear}`,
+      carPlate: `${pLetters} ${pNumbers}`.trim().toUpperCase(),
       services: svcs,
       totalAmount: total,
       laborCost: labor,
       discount: discount,
-      notes: el('store-notes')?.value.trim() || '',
+      notes: finalNote,
       status: actionStatus,
       createdBy: State.user?.name || 'Unknown',
     };
-    if (!orderData.customerInfo || !orderData.carPlate || !orderData.carModel) { showToast('أكمل بيانات العميل والسيارة', 'warning'); return; }
     const btn = e.submitter; const orig = btn?.innerHTML;
     if (btn) { btn.disabled=true; btn.innerHTML=`<i class="fas fa-spinner fa-spin"></i>`; }
     try {
@@ -762,6 +923,168 @@ function bindOrderForm() {
 // Execute immediately since we are a deferred module
 bindOrderForm();
 
+/* ── CUSTOMER LOGIC ── */
+window._lastFoundCustomerCars = [];
+window._lastFoundCustomerName = '';
+
+window.searchCustomerByPhone = async function(phone) {
+  if (!phone || phone.length < 9) return;
+  try {
+    const orders = await Database.getOrders();
+    const matchingOrders = orders.filter(o => o.customerInfo && o.customerInfo.includes(phone));
+    
+    if (matchingOrders.length > 0) {
+      // Get the customer name from the most recent order
+      const custInfo = matchingOrders[0].customerInfo || '';
+      window._lastFoundCustomerName = custInfo.replace(phone, '').replace(/-|,/g, '').trim();
+      el('store-cust-name').value = window._lastFoundCustomerName;
+
+      // Extract unique cars
+      const carsMap = {};
+      matchingOrders.forEach(o => {
+        if (!o.carModel) return;
+        const key = (o.carModel + '|' + (o.carPlate||'')).trim();
+        if (!carsMap[key]) {
+           let carMake = o.carModel || '', carYear = '';
+           const yearMatch = carMake.match(/(\d{4})/);
+           if (yearMatch) { carYear = yearMatch[0]; carMake = carMake.replace(yearMatch[0], '').trim(); }
+           carsMap[key] = { make: carMake, year: carYear, plate: o.carPlate || '' };
+        }
+      });
+      
+      window._lastFoundCustomerCars = Object.values(carsMap);
+      
+      if (window._lastFoundCustomerCars.length > 0) {
+        // Show modal to choose car
+        const modal = document.getElementById('customer-cars-modal');
+        const listEl = document.getElementById('customer-cars-list');
+        document.getElementById('cars-modal-desc').textContent = `العميل: ${window._lastFoundCustomerName} - لديه ${window._lastFoundCustomerCars.length} سيارة سابقة.`;
+        
+        listEl.innerHTML = window._lastFoundCustomerCars.map((car, idx) => `
+          <button type="button" class="btn btn-light" style="justify-content:space-between" onclick="selectCustomerCar(${idx})">
+            <div><i class="fas fa-car me-2 text-primary"></i> ${car.make} ${car.year}</div>
+            <span class="badge badge-gray">${car.plate}</span>
+          </button>
+        `).join('');
+        
+        modal.classList.remove('hidden');
+      }
+    }
+  } catch(e) { console.error('Error fetching customer by phone:', e); }
+};
+
+window.selectCustomerCar = function(index) {
+  const car = window._lastFoundCustomerCars[index];
+  if (!car) return;
+  el('store-car-year').value = car.year;
+  el('store-car-make').value = car.make;
+  
+  const actPlate = car.plate;
+  const letters = actPlate.replace(/[^A-Za-zأ-ي]/g, '').slice(0, 4).padEnd(4, ' ').split('');
+  const numbers = actPlate.replace(/[^0-9٠-٩]/g, '').slice(0, 4).padEnd(4, ' ').split('');
+  
+  const letterInputs = document.querySelectorAll('.plate-letter');
+  const numberInputs = document.querySelectorAll('.plate-number');
+  letterInputs.forEach((inp, idx) => inp.value = letters[idx]?.trim() || '');
+  numberInputs.forEach((inp, idx) => inp.value = numbers[idx]?.trim() || '');
+  
+  document.getElementById('customer-cars-modal').classList.add('hidden');
+  showToast('تم استرجاع بيانات السيارة', 'success');
+};
+
+window.selectNewCustomerCar = function() {
+  // Just clear the car fields and close modal
+  el('store-car-year').value = '';
+  el('store-car-make').value = '';
+  document.querySelectorAll('.plate-letter, .plate-number').forEach(input => input.value = '');
+  document.getElementById('customer-cars-modal').classList.add('hidden');
+  el('store-car-make').focus();
+};
+
+window.moveToNext = function(input, event) {
+  if (input.value.length === input.maxLength) {
+    const next = input.nextElementSibling;
+    if (next && next.tagName === 'INPUT') {
+      next.focus();
+    } else if (!next && input.classList.contains('plate-letter')) {
+      const firstNum = document.querySelector('.plate-number');
+      if (firstNum) firstNum.focus();
+    }
+  }
+};
+
+window.initCustomers = async function() {
+  showLoader();
+  try {
+    State.orders = await Database.getOrders();
+    window.renderCustomersTable();
+  } catch(e) { console.error('Error initCustomers:', e); }
+  finally { hideLoader(); }
+};
+
+window.renderCustomersTable = function() {
+  const q = (document.getElementById('search-customers')?.value || '').toLowerCase();
+  
+  // Extract unique customers from orders (simulate database table functionality without modifying data.js API constraint heavily)
+  const customersMap = {};
+  State.orders.forEach(o => {
+    if (o.customerInfo) {
+      let custName = o.customerInfo, custPhone = '';
+      const phoneMatch = o.customerInfo.match(/(\d{9,10})/);
+      if (phoneMatch) {
+        custPhone = phoneMatch[0];
+        custName = o.customerInfo.replace(custPhone, '').replace(/-|,/g, '').trim();
+      }
+      
+      let carMake = o.carModel || '', carYear = '';
+      const yearMatch = carMake.match(/(\d{4})/);
+      if (yearMatch) {
+         carYear = yearMatch[0];
+         carMake = carMake.replace(yearMatch[0], '').trim();
+      }
+
+      const key = custPhone + '_' + (o.carPlate || '');
+      if (!customersMap[key] || customersMap[key].latestDate < new Date(o.createdAt)) {
+         customersMap[key] = {
+           name: custName,
+           phone: custPhone,
+           make: carMake,
+           year: carYear,
+           plate: o.carPlate,
+           latestDate: new Date(o.createdAt)
+         };
+      }
+    }
+  });
+
+  let customersList = Object.values(customersMap).sort((a, b) => b.latestDate - a.latestDate);
+  if (q) {
+    customersList = customersList.filter(c => 
+      (c.name||'').toLowerCase().includes(q) || 
+      (c.phone||'').includes(q) || 
+      (c.plate||'').toLowerCase().includes(q) ||
+      (c.make||'').toLowerCase().includes(q)
+    );
+  }
+
+  const tbody = document.getElementById('customers-tbody');
+  if (!tbody) return;
+  if (!customersList.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-muted"><i class="fas fa-users-slash fa-2x mb-2 opacity-25 d-block"></i>لا يوجد عملاء مطابقين</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = customersList.map(c => `
+    <tr>
+      <td class="fw-bold">${c.name || '-'}</td>
+      <td dir="ltr" class="text-end">${c.phone || '-'}</td>
+      <td>${c.make || '-'}</td>
+      <td>${c.year || '-'}</td>
+      <td><span class="badge badge-gray">${c.plate || '-'}</span></td>
+    </tr>
+  `).join('');
+};
+
 /* ── ORDER DETAILS ── */
 window.openOrderDetails = function(orderId) {
   const order = State.orders.find(o => o.id === orderId);
@@ -786,15 +1109,58 @@ function renderOrderDetails(order) {
   const delivLabel = el('detail-delivery-date');
   if (delivLabel) delivLabel.textContent = order.deliveryDate ? new Date(order.deliveryDate).toLocaleString('ar-SA') : '-';
 
+  const isTech = State.user?.role === 'technician';
+
   // Services list
   const svcs = order.services || [];
   el('detail-services-list').innerHTML = svcs.length
-    ? svcs.map(s => `<li class="py-1 border-bottom"><span class="fw-bold">${s.name}</span> &times; ${s.qty || 1} = <span class="text-primary fw-bold">${((s.price||0)*(s.qty||1)).toLocaleString('ar-SA')} ${window.t('SAR')}</span></li>`).join('')
+    ? svcs.map(s => {
+        const priceHTML = isTech ? '' : ` = <span class="text-primary fw-bold">${((s.price||0)*(s.qty||1)).toLocaleString('ar-SA')} ${window.t('SAR')}</span>`;
+        return `<li class="py-1 border-bottom"><span class="fw-bold">${s.name}</span> &times; ${s.qty || 1}${priceHTML}</li>`;
+      }).join('')
     : `<li class="text-muted">${window.t('NO_SERVICES')}</li>`;
 
-  // Notes box
+  // Hide financials box for technicians
+  const svcTotalContainer = el('detail-svc-total');
+  if (svcTotalContainer && svcTotalContainer.closest('.summary-box')) {
+    svcTotalContainer.closest('.summary-box').style.display = isTech ? 'none' : 'block';
+  }
+
+  // Notes box & Spare Parts Table parsing
   const notesBox = el('detail-notes-box');
-  if (notesBox) { notesBox.style.display = order.notes ? 'block' : 'none'; el('detail-notes-content').textContent = order.notes || ''; }
+  if (notesBox) { 
+    notesBox.style.display = order.notes ? 'block' : 'none'; 
+    
+    const noteString = order.notes || '';
+    const splitPos = noteString.indexOf('\n\n=== قطع الغيار ===\n');
+    let mainNote = noteString;
+    let partsHtml = '';
+    
+    if(splitPos !== -1) {
+      mainNote = noteString.substring(0, splitPos);
+      const partsStr = noteString.substring(splitPos + 19);
+      const partsList = partsStr.split('\n').filter(p => p.startsWith('- ')).map(p => p.substring(2));
+      
+      if (partsList.length > 0) {
+        partsHtml = `<table class="data-table mt-3" style="width:100%; border:1px solid var(--border); box-shadow:none">
+          <thead><tr style="background:var(--bg-light)"><th>قطع الغيار المسلمة من العميل</th></tr></thead>
+          <tbody>${partsList.map(p => `<tr><td><i class="fas fa-wrench me-2 text-muted"></i> ${p}</td></tr>`).join('')}</tbody>
+        </table>`;
+      }
+    }
+    
+    // Check display property again based on parsed mainNote + parts
+    if (!mainNote.trim() && !partsHtml) {
+      notesBox.style.display = 'none';
+    } else {
+      notesBox.style.display = 'block';
+    }
+    
+    const contentEl = el('detail-notes-content');
+    if (contentEl) {
+      contentEl.innerHTML = mainNote.replace(/\\n/g, '<br>') + partsHtml;
+    }
+  }
 
   // Financials
   const svcTotal = svcs.reduce((s,x)=>s+(x.price||0)*(x.qty||1),0);
@@ -832,6 +1198,8 @@ function renderActionButtons(order) {
   const role = State.user.role;
   const btns = [];
 
+  btns.push(`<button class="btn btn-outline" style="background:#f8fafc" onclick="printOrderTemplate('${order.id}')"><i class="fas fa-print me-1 text-primary"></i> طباعة أمر التشغيل</button>`);
+
   if (role === 'admin' || role === 'accountant') {
     if (order.status === 'pending_payment' || order.status === 'partially_paid') {
       btns.push(`<button class="btn btn-success" onclick="approvePaymentAction('${order.id}')">${window.t('BTN_APPROVE_PAYMENT')}</button>`);
@@ -842,24 +1210,26 @@ function renderActionButtons(order) {
       if (excess > 0) {
         btns.push(`<button class="btn" style="background-color: #9c27b0; color: white;" onclick="openRefundModal('${order.id}', ${excess})"><i class="fas fa-undo me-1"></i> رد الفائض (${excess.toLocaleString('ar-SA')} ${window.t('SAR')})</button>`);
       } else if (remaining > 0 && order.status !== 'closed') {
-        // Redesigned: Clear UX with Full Payment vs Partial Payment
         btns.push(`<button class="btn btn-outline-success" onclick="openPaymentModal('${order.id}', ${remaining}, 'full')"><i class="fas fa-check-double me-1"></i> سداد كامل (${remaining.toLocaleString('ar-SA')} ${window.t('SAR')})</button>`);
         btns.push(`<button class="btn btn-outline-primary" onclick="openPaymentModal('${order.id}', ${remaining}, 'partial')"><i class="fas fa-hand-holding-usd me-1"></i> سداد جزئي</button>`);
       }
     }
-    if (order.status === 'ready_for_delivery') {
-      const remainingForDelivery = order.totalAmount - order.paidAmount;
-      if (remainingForDelivery > 0) {
-        btns.push(`<button class="btn btn-danger" disabled style="opacity:0.9; cursor:not-allowed;">
-          <i class="fas fa-lock me-1"></i> لا يمكن التسليم (متبقي ${remainingForDelivery.toLocaleString('ar-SA')} ${window.t('SAR')})
-        </button>`);
-      } else {
-        btns.push(`<button class="btn btn-primary" onclick="closeOrderAction('${order.id}')">
-          <i class="fas fa-check-double me-1"></i> ${window.t('BTN_CLOSE_ORDER')}
-        </button>`);
-      }
+  }
+
+  if (order.status === 'ready_for_delivery') {
+    const remainingForDelivery = order.totalAmount - order.paidAmount;
+    if (remainingForDelivery > 0) {
+      const restrictText = role === 'technician' ? 'لا يمكن التسليم لعدم السداد' : `لا يمكن التسليم (متبقي ${remainingForDelivery.toLocaleString('ar-SA')} ${window.t('SAR')})`;
+      btns.push(`<button class="btn btn-danger" disabled style="opacity:0.9; cursor:not-allowed;">
+        <i class="fas fa-lock me-1"></i> ${restrictText}
+      </button>`);
+    } else {
+      btns.push(`<button class="btn btn-primary" onclick="closeOrderAction('${order.id}')">
+        <i class="fas fa-check-double me-1"></i> ${window.t('BTN_CLOSE_ORDER')}
+      </button>`);
     }
   }
+  
   if (role === 'admin' || role === 'technician') {
     if (order.status === 'paid_ready') {
       btns.push(`<button class="btn btn-warning" onclick="openDeliveryModal('${order.id}')">${window.t('BTN_START_WORK')}</button>`);
@@ -868,7 +1238,7 @@ function renderActionButtons(order) {
       btns.push(`<button class="btn btn-success" onclick="markReadyAction('${order.id}')">${window.t('BTN_MARK_READY')}</button>`);
     }
   }
-  if (role === 'admin') {
+  if (role === 'admin' || role === 'receptionist') {
     if (!['closed'].includes(order.status)) {
       btns.push(`<button class="btn btn-light" onclick="openEditOrderForm('${order.id}')">${window.t('EDIT_ORDER')}</button>`);
     }
@@ -986,6 +1356,126 @@ window.addOrderNoteAction = async function() {
   if (btn) { btn.disabled=false; btn.innerHTML=`<i class="fas fa-paper-plane me-2"></i>إرسال وحفظ`; }
 };
 
+window.printOrderTemplate = function(orderId) {
+  const order = State.orders.find(o => o.id === orderId);
+  if (!order) return;
+
+  const svcs = order.services || [];
+  const svcTotal = svcs.reduce((s,x)=>s+(x.price||0)*(x.qty||1),0);
+
+  let customParts = [];
+  const noteStr = order.notes || '';
+  const splitPos = noteStr.indexOf('\n\n=== قطع الغيار ===\n');
+  let mainNote = noteStr;
+  if(splitPos !== -1) {
+    mainNote = noteStr.substring(0, splitPos);
+    customParts = noteStr.substring(splitPos + 19).split('\n').filter(p=>p.startsWith('- ')).map(p=>p.substring(2));
+  }
+
+  function getServicesHTML(showPrice) {
+    if(!svcs.length && !customParts.length) return `<p style="font-size:12px;margin:10px 0;text-align:center;color:#666">لا توجد خدمات محددة</p>`;
+    let html = `<table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;" border="1">
+      <thead><tr style="background:#f8f9fa">
+        <th style="padding:4px">البيان</th>
+        ${showPrice ? `<th style="padding:4px;width:40px">الكمية</th><th style="padding:4px;width:70px">السعر</th>` : ''}
+      </tr></thead><tbody>`;
+    svcs.forEach(s => {
+      html += `<tr><td style="padding:4px">${s.name}</td>`;
+      if(showPrice) html += `<td style="padding:4px;text-align:center">${s.qty||1}</td><td style="padding:4px;text-align:center">${((s.price||0)*(s.qty||1)).toLocaleString()}</td>`;
+      html += `</tr>`;
+    });
+    
+    if (customParts.length > 0) {
+      html += `<tr><td colspan="${showPrice ? 3 : 1}" style="background:#eef2ff;padding:4px;font-weight:bold;text-align:center;">قطع غيار مقدمة من العميل (للمعلومية فقط)</td></tr>`;
+      customParts.forEach(p => {
+        html += `<tr><td style="padding:4px">📦 ${p}</td>`;
+        if(showPrice) html += `<td style="padding:4px;text-align:center">-</td><td style="padding:4px;text-align:center">-</td>`;
+        html += `</tr>`;
+      });
+    }
+    html += `</tbody></table>`;
+    return html;
+  }
+
+  function getHeaderHTML(title, showCustomer, showDelivery) {
+    return `
+      <div style="text-align:center; border-bottom:1px solid #ccc; padding-bottom:8px; margin-bottom:10px;">
+        <h3 style="margin:0;font-size:16px;">أمان كار لصيانة السيارات</h3>
+        <h5 style="margin:4px 0;font-size:12px;color:#444;">${title}</h5>
+      </div>
+      <table style="width:100%; font-size:12px; margin-bottom:10px;">
+        <tr>
+          <td style="padding:3px 0;"><strong>رقم الأمر:</strong> #${order.id}</td>
+          <td style="padding:3px 0;text-align:left"><strong>تاريخ الدخول:</strong> ${new Date(order.createdAt).toLocaleDateString('ar-SA')}</td>
+        </tr>
+        ${showCustomer ? `
+        <tr>
+          <td colspan="2" style="padding:3px 0; border-top:1px dashed #eee"><strong>العميل:</strong> ${order.customerInfo || '-'}</td>
+        </tr>` : ''}
+        <tr>
+          <td style="padding:3px 0; border-top:1px dashed #eee"><strong>السيارة:</strong> ${order.carModel || '-'}</td>
+          <td style="padding:3px 0; border-top:1px dashed #eee; text-align:left"><strong>اللوحة:</strong> <span dir="ltr">${order.carPlate || '-'}</span></td>
+        </tr>
+        ${showDelivery ? `
+        <tr>
+          <td colspan="2" style="padding:3px 0; border-top:1px dashed #eee; color:#2563eb"><strong>تاريخ الإستلام المتوقع:</strong> ${order.deliveryDate ? new Date(order.deliveryDate).toLocaleString('ar-SA') : '<span style="font-style:italic;color:#666">سيتحدد لاحقاً من قبل الفني بعد الفحص</span>'}</td>
+        </tr>` : ''}
+      </table>
+    `;
+  }
+
+  function getTotalsHTML() {
+    return `<div style="margin-top:10px; padding:8px; border:1px solid #ccc; font-size:12px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>الإجمالي (شامل المصنعية):</span><b>${(svcTotal+(order.laborCost||0)).toLocaleString()} ر.س</b></div>
+      ${(order.discount||0)>0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:4px;color:red"><span>الخصم:</span><b>${(order.discount||0).toLocaleString()} ر.س</b></div>` : ''}
+      <div style="display:flex;justify-content:space-between;border-top:1px solid #ccc;padding-top:4px;font-weight:bold;font-size:14px"><span>الصافي المطلوب:</span><b>${(order.totalAmount||0).toLocaleString()} ر.س</b></div>
+    </div>`;
+  }
+
+  const cutLine = `<div class="cut-line" style="margin:20px 0;"><i class="fas fa-cut"></i></div>`;
+
+  const customerCopy = `<div class="print-voucher customer-voucher">
+    ${getHeaderHTML('نسخة العميل', true, true)}
+    ${getServicesHTML(true)}
+    ${getTotalsHTML()}
+    <p style="text-align:center;font-size:11px;margin-top:10px;color:#555"><b>يرجى إبراز هذه الفاتورة عند استلام السيارة</b></p>
+  </div>`;
+
+  const cashierCopy = `<div class="print-voucher cashier-voucher">
+    ${getHeaderHTML('نسخة الخزينة للتسديد', true, false)}
+    ${getTotalsHTML()}
+    <div style="margin-top:10px;font-size:12px;border-top:1px dashed #aaa;padding-top:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+        <span><b>المبلغ المسدد:</b> ${(order.paidAmount||0).toLocaleString()} ر.س</span>
+        <span><b>المتبقي للإستلام:</b> ${Math.max(0, order.totalAmount-(order.paidAmount||0)).toLocaleString()} ر.س</span>
+      </div>
+      <div style="text-align:center;margin-top:15px; font-weight:bold;">توقيع المحاسب: .....................</div>
+    </div>
+  </div>`;
+
+  const techCopy = `<div class="print-voucher tech-voucher">
+    ${getHeaderHTML('أمر ورشة (نسخة الفني)', false, false)}
+    ${getServicesHTML(false)}
+    <div style="margin-top:10px;border:1px solid #ccc;padding:8px;font-size:11px">
+      <b>إرشادات العمل والملاحظات:</b>
+      <p style="min-height:30px;margin:4px 0">${mainNote.trim() || 'لا يوجد'}</p>
+    </div>
+    <div style="margin-top:15px;font-size:11px;display:flex;justify-content:space-between">
+      <span>توقيع الفني: ........................</span>
+      <span>مراقب الجودة: ........................</span>
+    </div>
+  </div>`;
+
+  const printContainer = document.getElementById('print-container');
+  if (printContainer) {
+    const isTech = State.user?.role === 'technician';
+    printContainer.innerHTML = isTech ? techCopy : (customerCopy + cutLine + cashierCopy + cutLine + techCopy);
+    setTimeout(() => {
+      window.print();
+    }, 100);
+  }
+};
+
 window.reassignTechnicianAction = async function() {
   const sel = el('reassign-tech-sel');
   if (!sel || !State.currentOrderId) return;
@@ -1079,7 +1569,7 @@ window.confirmPayment = async function() {
   if (!amount || amount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'warning'); return; }
   try {
     showLoader();
-    await Database.processPayment(orderId, isRefund ? -amount : amount);
+    await Database.processPayment(orderId, isRefund ? -amount : amount, State.user?.name || 'Accountant');
     if (typeInput) typeInput.value = '';
     Database.invalidateOrdersCache();
     State.orders = await Database.getOrders();
@@ -1258,18 +1748,21 @@ window.renderUsersList = function() {
   const q = (el('search-users')?.value||'').toLowerCase();
   let profiles = State.profiles;
   if (q) profiles = profiles.filter(p => (p.full_name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q));
-  const roleMap = { admin:window.t('ROLE_ADMIN'), technician:window.t('ROLE_TECHNICIAN'), accountant:window.t('ROLE_ACCOUNTANT'), pending:window.t('ROLE_PENDING'), suspended:window.t('ROLE_SUSPENDED') };
-  const badgeMap = { admin:'primary', technician:'warning', accountant:'info', pending:'gray', suspended:'danger' };
+  const roleMap = { admin:window.t('ROLE_ADMIN'), receptionist:window.t('ROLE_RECEPTIONIST'), technician:window.t('ROLE_TECHNICIAN'), accountant:window.t('ROLE_ACCOUNTANT'), pending:window.t('ROLE_PENDING'), suspended:window.t('ROLE_SUSPENDED') };
+  const badgeMap = { admin:'primary', receptionist:'success', technician:'warning', accountant:'info', pending:'gray', suspended:'danger' };
   tbody.innerHTML = profiles.map(p => `<tr>
     <td><div class="fw-bold text-sm">${p.full_name||'-'}</div><div class="text-xs text-muted">${p.email||'-'}</div></td>
     <td><span class="badge badge-${badgeMap[p.role]||'gray'}">${roleMap[p.role]||p.role}</span></td>
     <td class="text-sm text-muted">${new Date(p.created_at).toLocaleDateString('ar-SA')}</td>
     <td>
       <select class="form-input" style="width:auto;padding:.3rem .5rem;font-size:.75rem" onchange="changeUserRoleAction('${p.id}',this.value)">
-        ${['pending','technician','accountant','admin','suspended'].map(r=>`<option value="${r}"${p.role===r?' selected':''}>${roleMap[r]}</option>`).join('')}
+        ${['pending','receptionist','technician','accountant','admin','suspended'].map(r=>`<option value="${r}"${p.role===r?' selected':''}>${roleMap[r]}</option>`).join('')}
       </select>
     </td>
-  </tr>`).join('') || `<tr><td colspan="4" class="text-center p-4 text-muted">لا يوجد موظفين.</td></tr>`;
+    <td>
+      <button class="btn btn-sm btn-outline-info" onclick="openPermissionsModal('${p.id}')"><i class="fas fa-shield-alt"></i></button>
+    </td>
+  </tr>`).join('') || `<tr><td colspan="5" class="text-center p-4 text-muted">لا يوجد موظفين.</td></tr>`;
 };
 
 window.changeUserRoleAction = async function(userId, newRole) {
@@ -1279,6 +1772,44 @@ window.changeUserRoleAction = async function(userId, newRole) {
     renderUsersList();
     showToast(window.t('SUCCESS'), 'success');
   } catch(e) { showToast(e.message,'error'); }
+};
+
+window.openPermissionsModal = function(userId) {
+  const profile = State.profiles.find(p => p.id === userId);
+  if (!profile) return;
+  el('perms-user-id').value = userId;
+  const perms = profile.permissions || {};
+  el('perm-view-services').checked = !!perms.viewServices;
+  el('perm-view-accountant').checked = !!perms.viewAccountant;
+  el('user-permissions-modal').classList.remove('hidden');
+};
+
+window.closePermissionsModal = function() {
+  el('user-permissions-modal').classList.add('hidden');
+};
+
+window.saveUserPermissionsAction = async function() {
+  const userId = el('perms-user-id').value;
+  if (!userId) return;
+  
+  const perms = {
+    viewServices: el('perm-view-services').checked,
+    viewAccountant: el('perm-view-accountant').checked
+  };
+
+  try {
+    showLoader();
+    await Database.updateUserPermissions(userId, perms);
+    State.profiles = await Database.getProfiles();
+    renderUsersList();
+    closePermissionsModal();
+    showToast('تم حفظ الصلاحيات الإضافية', 'success');
+  } catch(e) {
+    showToast('حدث خطأ. تأكد من تهيئة قاعدة البيانات (permissions json column).', 'error');
+    console.error(e);
+  } finally {
+    hideLoader();
+  }
 };
 
 /* ── PROFILE VIEW ── */

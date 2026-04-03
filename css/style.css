@@ -1187,3 +1187,55 @@ small, .small { font-size: .875em; }
 
 /* Link style */
 .link-primary { color: var(--primary); text-decoration: underline; }
+
+/* ============================================================
+   PRINT TEMPLATES (VOUCHERS)
+   ============================================================ */
+@media print {
+  #dashboard-shell, #global-loader, .modal-backdrop { display: none !important; }
+  
+  html, body {
+    height: auto !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  
+  #print-overlay {
+    display: block !important;
+    position: relative !important;
+    width: 100%;
+    margin: 0; padding: 0; background: transparent;
+  }
+  
+  #print-overlay, #print-overlay * { visibility: visible; }
+  
+  .print-voucher {
+    width: 100%; max-width: 100%;
+    page-break-inside: avoid;
+    font-family: inherit; color: #000; line-height: 1.2;
+    padding: 0;
+  }
+  
+  .cut-line {
+    border-bottom: 1.5px dashed #666;
+    margin: 8px 0;
+    position: relative;
+    text-align: center;
+  }
+  
+  .cut-line i {
+    position: absolute; left: 50%; top: -8px; transform: translateX(-50%);
+    font-size: 14px; color: #666; background: #fff; padding: 0 5px;
+  }
+
+  @page {
+    margin: 5mm;
+    size: A4 portrait;
+  }
+}
+
+#print-overlay { display: none; }
+@media print { #print-overlay { display: block; } }
